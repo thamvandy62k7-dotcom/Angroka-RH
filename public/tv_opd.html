@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TV Display - មន្ទីរពេទ្យបង្អែក អង្គរកា</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700;800&display=swap');
+
+    @font-face {
+      font-family: 'Khmer OS Muol Li';
+      src: local('Khmer OS Muol Light'), local('Khmer OS Muol');
+    }
+    @font-face {
+      font-family: 'Khmer OS Battambang';
+      src: local('Khmer OS Battambang');
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: #030816;
+      color: #ffffff;
+      font-family: 'Khmer OS Battambang', 'Kantumruy Pro', sans-serif;
+      height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .font-muol {
+      font-family: 'Khmer OS Muol Li', 'Khmer OS Muol Light', sans-serif;
+    }
+
+    /* Top Header Bar - ពង្រីកអក្សរ និងจัดកន្លែងឱ្យធំទូលាយ */
+    .top-header {
+      background-color: #081226;
+      border: 1px solid #172a4d;
+      border-radius: 16px;
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .header-title-left {
+      font-size: 34px;
+      color: #38bdf8;
+      letter-spacing: 0.5px;
+      font-weight: bold;
+    }
+
+    .header-title-center {
+      font-size: 28px;
+      color: #ffffff;
+      letter-spacing: 1px;
+      font-weight: bold;
+    }
+
+    /* Date Time Badge Style - ពង្រីកម៉ោង និងកាលបរិច្ឆេទឱ្យធំច្បាស់ងាយមើល */
+    .datetime-badge {
+      background-color: #0d1b38;
+      border: 1px solid #1e3a6e;
+      padding: 12px 28px;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    .clock-text {
+      font-size: 30px;
+      font-weight: 800;
+      color: #22c55e; /* ប្តូរពណ៌ម៉ោងឱ្យលេចធ្លោជាងមុន */
+      letter-spacing: 1.5px;
+      font-family: 'Kantumruy Pro', sans-serif;
+    }
+    .divider {
+      color: #1e3a6e;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .date-text {
+      font-size: 20px;
+      color: #f1f5f9;
+      font-weight: 600;
+    }
+
+    /* Main Section Layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.8fr 1.2fr;
+      gap: 20px;
+      flex-grow: 1;
+    }
+
+    .panel-box {
+      background-color: #081226;
+      border: 1px solid #172a4d;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #172a4d;
+    }
+
+    .section-label {
+      font-size: 24px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #22c55e;
+    }
+
+    .queued-badge {
+      font-size: 20px;
+      color: #facc15;
+      font-weight: bold;
+      background-color: #0d1b38;
+      padding: 6px 18px;
+      border-radius: 20px;
+      border: 1px solid #1e3a6e;
+    }
+
+    /* Calling List Area */
+    .rooms-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex-grow: 1;
+      justify-content: space-around;
+    }
+
+    .room-card {
+      background-color: #050d1e;
+      border: 1px solid #162a4a;
+      border-radius: 16px;
+      padding: 16px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s ease;
+      min-height: 115px;
+    }
+
+    .call-number {
+      font-size: 80px;
+      font-weight: 800;
+      color: #22c55e;
+      letter-spacing: 4px;
+      min-width: 200px;
+      font-family: 'Kantumruy Pro', sans-serif;
+    }
+
+    .arrow-icon {
+      font-size: 42px;
+      color: #22c55e;
+      font-weight: bold;
+    }
+
+    /* កែសម្រួល Badge បន្ទប់ និង ពង្រីកទំហំលេខបន្ទប់ឱ្យធំ ក្រាស់ទាក់ទាញ */
+    .room-badge {
+      background-color: #0284c7;
+      border: 1px solid #38bdf8;
+      color: #ffffff;
+      padding: 10px 24px;
+      border-radius: 14px;
+      font-size: 28px;
+      min-width: 340px;
+      text-align: center;
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.4);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* ថ្នាក់សម្រាប់ពង្រីកលេខបន្ទប់ឱ្យធំច្បាស់ និងក្រាស់ខ្លាំង */
+    .room-number-highlight {
+      font-size: 48px;
+      font-weight: 800;
+      font-family: 'Kantumruy Pro', sans-serif;
+      color: #ffffff;
+      margin-left: 4px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    /* 🔴 បន្ទប់ដែល OFFLINE */
+    .room-card.is-offline {
+      background-color: #120305 !important;
+      border: 1px solid #7f1d1d !important;
+      opacity: 0.9;
+    }
+    .room-card.is-offline .call-number {
+      color: #fca5a5 !important;
+      font-size: 45px !important;
+      letter-spacing: 2px;
+    }
+    .room-card.is-offline .arrow-icon {
+      color: #dc2626 !important;
+    }
+    .room-card.is-offline .room-badge {
+      background-color: #dc2626 !important;
+      border-color: #ef4444 !important;
+      color: #ffffff !important;
+      box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5);
+    }
+
+    /* Active Calling Animation */
+    .room-card.calling-active {
+      animation: pulse-border 1.2s infinite alternate;
+      background-color: #0a1a36 !important;
+    }
+    @keyframes pulse-border {
+      0% { border-color: #0284c7; box-shadow: 0 0 15px rgba(2, 132, 199, 0.4); }
+      100% { border-color: #38bdf8; box-shadow: 0 0 30px rgba(56, 189, 248, 0.8); }
+    }
+
+    /* 🟢 Right Side Waiting Queue - Grid 3 Columns */
+    .queue-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 8px;
+      overflow-y: auto;
+      align-content: start;
+    }
+    .queue-item {
+      background-color: #050d1e;
+      border: 1px solid #162a4a;
+      border-radius: 12px;
+      padding: 14px 8px;
+      text-align: center;
+      font-size: 45px;
+      font-weight: 800;
+      color: #f59e0b;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      letter-spacing: 2px;
+      font-family: 'Kantumruy Pro', sans-serif;
+    }
+
+    /* 🔔 Audio Overlay */
+    .audio-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(3, 8, 22, 0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .btn-enable-audio {
+      background: #0284c7;
+      color: white;
+      font-size: 24px;
+      padding: 18px 36px;
+      border: 1px solid #38bdf8;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: 'Khmer OS Muol Li', sans-serif;
+      box-shadow: 0 0 25px rgba(2, 132, 199, 0.5);
+      transition: all 0.2s ease;
+    }
+    .btn-enable-audio:hover {
+      transform: scale(1.03);
+      background: #0369a1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ប៊ូតុងចុចបើកសំឡេង -->
+  <div id="audio-overlay" class="audio-overlay">
+    <button class="btn-enable-audio" onclick="enableAudioSystem()">🔊 ចុចត្រង់នេះដើម្បីបើកប្រព័ន្ធសំឡេង TV</button>
+  </div>
+
+  <!-- Top Header Bar -->
+  <div class="top-header">
+    <div class="header-title-left font-muol">មន្ទីរពេទ្យបង្អែក អង្គរកា</div>
+    <div class="header-title-center font-muol">ព័ត៌មានលេខរង់ចាំ / QUEUE INFORMATION</div>
+    
+    <div class="datetime-badge">
+      <div class="clock-text" id="live-clock">00:00:00 AM</div>
+      <div class="divider">|</div>
+      <div class="date-text" id="live-date">ថ្ងៃ... ទី.. ខែ... ឆ្នាំ...</div>
+    </div>
+  </div>
+
+  <!-- Main Grid Area -->
+  <div class="main-grid">
+    
+    <!-- ផ្នែកខាងឆ្វេង ៖ លេខកំពុងហៅ -->
+    <div class="panel-box">
+      <div class="section-header">
+        <div class="section-label font-muol">
+          🟢 លេខកំពុងហៅ / NOW CALLING
+        </div>
+      </div>
+
+      <div class="rooms-list">
+        <div class="room-card is-offline" id="card-1">
+          <div class="call-number" id="num-1">OFFLINE</div>
+          <div class="arrow-icon">➔</div>
+          <div class="room-badge font-muol" id="badge-1">
+            បន្ទប់ពិគ្រោះជំងឺលេខ <span class="room-number-highlight">01</span>
+          </div>
+        </div>
+
+        <div class="room-card is-offline" id="card-2">
+          <div class="call-number" id="num-2">OFFLINE</div>
+          <div class="arrow-icon">➔</div>
+          <div class="room-badge font-muol" id="badge-2">
+            បន្ទប់ពិគ្រោះជំងឺលេខ <span class="room-number-highlight">02</span>
+          </div>
+        </div>
+
+        <div class="room-card is-offline" id="card-3">
+          <div class="call-number" id="num-3">OFFLINE</div>
+          <div class="arrow-icon">➔</div>
+          <div class="room-badge font-muol" id="badge-3">
+            បន្ទប់ពិគ្រោះជំងឺលេខ <span class="room-number-highlight">03</span>
+          </div>
+        </div>
+
+        <div class="room-card is-offline" id="card-4">
+          <div class="call-number" id="num-4">OFFLINE</div>
+          <div class="arrow-icon">➔</div>
+          <div class="room-badge font-muol" id="badge-4">
+            បន្ទប់ពិគ្រោះជំងឺលេខ <span class="room-number-highlight">04</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ផ្នែកខាងស្តាំ ៖ លេខនឹងត្រូវហៅបន្ទាប់ (Grid 3 Columns) -->
+    <div class="panel-box">
+      <div class="section-header">
+        <div class="section-label font-muol" style="color: #f8fafc;">
+          ⏳ លេខកំពុងរង់ចាំ (UP NEXT)
+        </div>
+        <div class="queued-badge" id="queued-count">  0 នាក់ </div>
+      </div>
+
+      <div class="queue-list" id="tv-waiting-container">
+        <!-- លេខរៀងរង់ចាំបង្ហាញជា Grid ៣ ជួរត្រង់នេះ -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Realtime Clock Script -->
+  <script>
+    (function runClock() {
+      function convertToKhmerNum(num) {
+        var khmerNums = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+        return String(num).split('').map(function(n) {
+          return khmerNums[n] !== undefined ? khmerNums[n] : n;
+        }).join('');
+      }
+
+      function updateDateTime() {
+        var now = new Date();
+        var hours = now.getHours();
+        var minutes = String(now.getMinutes()).padStart(2, '0');
+        var seconds = String(now.getSeconds()).padStart(2, '0');
+        var ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        var strHours = String(hours).padStart(2, '0');
+
+        var clockElem = document.getElementById('live-clock');
+        if (clockElem) {
+          clockElem.innerText = strHours + ':' + minutes + ':' + seconds + ' ' + ampm;
+        }
+
+        var days = ['អាទិត្យ', 'ច័ន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បតិ៍', 'សុក្រ', 'សៅរ៍'];
+        var months = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+
+        var dayName = days[now.getDay()];
+        var dayNum = convertToKhmerNum(String(now.getDate()).padStart(2, '0'));
+        var monthName = months[now.getMonth()];
+        var yearNum = convertToKhmerNum(now.getFullYear());
+
+        var dateElem = document.getElementById('live-date');
+        if (dateElem) {
+          dateElem.innerText = 'ថ្ងៃ' + dayName + ' ទី' + dayNum + ' ខែ' + monthName + ' ឆ្នាំ' + yearNum;
+        }
+      }
+
+      updateDateTime();
+      setInterval(updateDateTime, 1000);
+    })();
+  </script>
+
+  <!-- Realtime Socket & Audio System -->
+  <script>
+    let isAudioEnabled = false;
+    let audioQueue = [];
+    let isPlaying = false;
+
+    const globalAudioPlayer = new Audio();
+    let lastCallInfo = { key: '', time: 0 };
+
+    function extractTicketValue(data) {
+      if (data === null || data === undefined) return '---';
+      if (typeof data === 'string' || typeof data === 'number') return String(data);
+      return data.ticket || data.ticketNumber || data.currentTicket || data.number || (data.ticketData ? data.ticketData.number : '---');
+    }
+
+    function parseTicketNumber(rawVal) {
+      const ticketVal = extractTicketValue(rawVal);
+      if (!ticketVal) return '---';
+      const strVal = String(ticketVal).trim();
+      if (strVal === '' || strVal === '---' || strVal === 'undefined' || strVal === 'null') {
+        return '---';
+      }
+      return strVal;
+    }
+
+    function enableAudioSystem() {
+      isAudioEnabled = true;
+      document.getElementById('audio-overlay').style.display = 'none';
+      
+      globalAudioPlayer.src = '/audio/dingdong.mp3';
+      globalAudioPlayer.play().then(() => {
+        globalAudioPlayer.pause();
+        globalAudioPlayer.currentTime = 0;
+      }).catch(e => {
+        console.log("Audio unlocked successfully.");
+      });
+    }
+
+    function processAudioQueue() {
+      if (isPlaying || audioQueue.length === 0) return;
+
+      isPlaying = true;
+      const currentTrackPath = audioQueue.shift();
+
+      globalAudioPlayer.src = currentTrackPath;
+
+      globalAudioPlayer.onended = () => {
+        setTimeout(() => {
+          isPlaying = false;
+          processAudioQueue();
+        }, 150);
+      };
+
+      globalAudioPlayer.onerror = () => {
+        console.warn(`Audio track missing: ${currentTrackPath}`);
+        setTimeout(() => {
+          isPlaying = false;
+          processAudioQueue();
+        }, 100);
+      };
+
+      globalAudioPlayer.play().catch(err => {
+        console.warn(`Play blocked or failed: ${currentTrackPath}`, err);
+        isPlaying = false;
+        processAudioQueue();
+      });
+    }
+
+    function playQueueVoiceMP3(ticketNumber, roomNumber) {
+      if (!isAudioEnabled) return;
+
+      let playlist = [];
+      
+      // 1. ឌីងដុង
+      playlist.push('/audio/dingdong.mp3');
+
+      // 2. សូមអញ្ជើញលេខ
+      playlist.push('/audio/please.mp3');
+
+      // 3. លេខសំបុត្រ (A, 0, 1, 2)
+      let ticketStr = String(ticketNumber).trim();
+      let characters = ticketStr.split('');
+
+      characters.forEach(char => {
+        if (/^[a-zA-Z]$/.test(char)) {
+          playlist.push(`/audio/${char.toUpperCase()}.mp3`);
+        } else if (/^\d$/.test(char)) {
+          playlist.push(`/audio/${char}.mp3`);
+        }
+      });
+
+      // 4. ចូលបន្ទប់ពិគ្រោះ
+      playlist.push('/audio/into_room.mp3');
+
+      // 5. លេខបន្ទប់ (0, 1)
+      let roomDigits = String(roomNumber).padStart(2, '0').split('');
+      roomDigits.forEach(digit => {
+        if (/^\d$/.test(digit)) {
+          playlist.push(`/audio/${digit}.mp3`);
+        }
+      });
+
+      audioQueue.push(...playlist);
+      processAudioQueue();
+    }
+
+    try {
+      const socket = io();
+
+      socket.on('connect', () => {
+        socket.emit('get-doctor-init', { dept: 'OPD' });
+      });
+
+      socket.on('get-doctor-init', (data) => {
+        if (data) {
+          if (data.rooms) updateDisplayUI(data.rooms);
+          if (data.waitingList) updateWaitingListUI(data.waitingList);
+        }
+      });
+
+      socket.on('update-rooms', (data) => {
+        const rooms = (data && data['OPD']) ? data['OPD'] : data;
+        updateDisplayUI(rooms);
+      });
+
+      socket.on('update-waiting', (data) => {
+        const list = (data && data['OPD']) ? data['OPD'] : (data.waitingList || (Array.isArray(data) ? data : []));
+        updateWaitingListUI(list);
+      });
+
+      socket.on('room-status-changed', (data) => {
+        if (!data) return;
+        const roomNum = parseInt(data.room);
+        const cardElem = document.getElementById(`card-${roomNum}`);
+        const numElem = document.getElementById(`num-${roomNum}`);
+
+        if (cardElem && numElem) {
+          const isOnline = (data.status === 'ACTIVE' || data.status === 'ONLINE' || data.isOnline === true);
+          if (isOnline) {
+            cardElem.classList.remove('is-offline');
+            const parsed = parseTicketNumber(data.currentTicket || '---');
+            numElem.innerText = parsed;
+          } else {
+            cardElem.classList.add('is-offline');
+            numElem.innerText = 'OFFLINE';
+          }
+        }
+      });
+
+      function updateDisplayUI(rooms) {
+        if (!rooms) return;
+        for (let r = 1; r <= 4; r++) {
+          const roomData = rooms[r] || { currentTicket: '---', status: 'OFFLINE' };
+          const cardElem = document.getElementById(`card-${r}`);
+          const numElem = document.getElementById(`num-${r}`);
+
+          if (cardElem && numElem) {
+            const isOnline = (roomData.status === 'ACTIVE' || roomData.status === 'ONLINE' || roomData.isOnline === true);
+            const ticketText = parseTicketNumber(roomData.currentTicket || roomData.ticket || roomData);
+
+            if (isOnline) {
+              cardElem.classList.remove('is-offline');
+              numElem.innerText = ticketText;
+            } else {
+              cardElem.classList.add('is-offline');
+              numElem.innerText = 'OFFLINE';
+            }
+          }
+        }
+      }
+
+      function updateWaitingListUI(list) {
+        const container = document.getElementById('tv-waiting-container');
+        const countBadge = document.getElementById('queued-count');
+        
+        const totalQueued = list ? list.length : 0;
+        if (countBadge) {
+          countBadge.innerText = `នៅសល់ ${totalQueued} នាក់`;
+        }
+
+        if (!container) return;
+
+        container.innerHTML = '';
+        if (!list || list.length === 0) {
+          container.innerHTML = '<div class="queue-item" style="color: #64748b; grid-column: span 3; font-size: 20px;">គ្មានទិន្នន័យ</div>';
+          return;
+        }
+        
+        list.slice(0, 21).forEach(rawNum => {
+          const numStr = parseTicketNumber(rawNum);
+          const div = document.createElement('div');
+          div.className = 'queue-item';
+          div.innerText = numStr;
+          container.appendChild(div);
+        });
+      }
+
+      function handleCallEvent(data) {
+        if (!data) return;
+        
+        // លក្ខខណ្ឌកែតម្រូវ៖ ផ្ទៀងផ្ទាត់ថាជាផ្នែក OPD ទើបបន្លឺសំឡេង និងលោតលេខ
+        if (data.dept && data.dept !== 'OPD') return;
+
+        const roomNum = parseInt(data.room || 1);
+        const rawTicket = data.ticket || data.currentTicket || data;
+        const ticketStr = parseTicketNumber(rawTicket);
+
+        const callKey = `${roomNum}_${ticketStr}`;
+        const currentTime = Date.now();
+        if (lastCallInfo.key === callKey && (currentTime - lastCallInfo.time) < 1200) {
+          return; 
+        }
+        lastCallInfo = { key: callKey, time: currentTime };
+
+        const cardElem = document.getElementById(`card-${roomNum}`);
+        const numElem = document.getElementById(`num-${roomNum}`);
+
+        if (cardElem && numElem) {
+          cardElem.classList.remove('is-offline');
+          numElem.innerText = ticketStr;
+
+          cardElem.classList.add('calling-active');
+          setTimeout(() => cardElem.classList.remove('calling-active'), 6000);
+        }
+
+        if (ticketStr !== '---') {
+          playQueueVoiceMP3(ticketStr, roomNum);
+        }
+      }
+
+      socket.on('ticket-called', handleCallEvent);
+      socket.on('play-sound', handleCallEvent);
+      socket.on('play-voice', handleCallEvent);
+
+    } catch(e) {
+      console.log("Socket Error:", e);
+    }
+  </script>
+</body>
+</html>

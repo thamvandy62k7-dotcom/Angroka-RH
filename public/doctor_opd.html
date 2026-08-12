@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ផ្ទាំងគ្រូពេទ្យ - ប្រព័ន្ធហៅលេខ (ពិគ្រោះជំងឺក្រៅ)</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap');
+
+    @font-face {
+      font-family: 'Khmer OS Muol Li';
+      src: local('Khmer OS Muol Light'), local('Khmer OS Muol');
+    }
+    @font-face {
+      font-family: 'Khmer OS Battambang';
+      src: local('Khmer OS Battambang');
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: #030816;
+      color: #ffffff;
+      font-family: 'Khmer OS Battambang', 'Kantumruy Pro', sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .font-muol {
+      font-family: 'Khmer OS Muol Li', 'Khmer OS Muol Light', sans-serif;
+    }
+
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: 1.1fr 1.2fr;
+      gap: 20px;
+      width: 100%;
+      max-width: 1300px;
+    }
+
+    .card-panel {
+      background-color: #081226;
+      border: 1px solid #172a4d;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .header-title {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header-title h2 {
+      color: #38bdf8;
+      font-size: 26px;
+    }
+    .header-title p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .status-badge-container {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 6px 20px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: bold;
+    }
+    .status-online { background-color: #14532d; color: #4ade80; border: 1px solid #22c55e; }
+    .status-offline { background-color: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
+
+    .display-screen {
+      background-color: #040914;
+      border: 2px dashed #1e3a6e;
+      border-radius: 14px;
+      padding: 25px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .screen-label {
+      color: #94a3b8;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .screen-number {
+      font-size: 75px;
+      font-weight: bold;
+      color: #22c55e;
+      letter-spacing: 3px;
+    }
+
+    .btn-action-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      filter: grayscale(80%);
+    }
+
+    .btn-next { background-color: #0284c7; color: white; }
+    .btn-next:hover:not(:disabled) { background-color: #0369a1; }
+    
+    .btn-row { display: flex; gap: 12px; }
+    .btn-recall { background-color: #d97706; color: white; flex: 1; }
+    .btn-recall:hover:not(:disabled) { background-color: #b45309; }
+    
+    .btn-finish { background-color: #16a34a; color: white; flex: 1; }
+    .btn-finish:hover:not(:disabled) { background-color: #15803d; }
+
+    .btn-toggle {
+      background-color: #1e293b;
+      color: #cbd5e1;
+      font-size: 15px;
+      padding: 12px;
+      border: 1px solid #334155;
+    }
+
+    .waiting-text {
+      text-align: center;
+      margin-top: 15px;
+      color: #94a3b8;
+      font-size: 15px;
+    }
+
+    .grid-title {
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .rooms-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .room-mini-card {
+      background-color: #050d1e;
+      border: 1px solid #162a4a;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 200px;
+    }
+
+    .mini-card-header {
+      font-size: 18px;
+      color: #38bdf8;
+    }
+
+    .mini-card-number {
+      font-size: 45px;
+      font-weight: bold;
+      color: #f59e0b;
+      margin: 10px 0;
+    }
+
+    .mini-card-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: bold;
+      align-self: center;
+    }
+    .status-badge-red {
+      color: #ef4444;
+      border: 1px solid #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+    .status-badge-green {
+      color: #22c55e;
+      border: 1px solid #22c55e;
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .room-mini-card.active-control {
+      border: 2px solid #0284c7;
+      box-shadow: 0 0 15px rgba(2, 132, 199, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard-container">
+    
+    <!-- 1. ផ្នែកខាងឆ្វេង ៖ ផ្ទាំងបញ្ជាគ្រូពេទ្យ -->
+    <div class="card-panel">
+      <div class="header-title">
+        <h2 class="font-muol" id="panel-room-title">បន្ទប់ពិគ្រោះ: 01 (ជំងឺក្រៅ)</h2>
+        <p>ប្រព័ន្ធបញ្ជាហៅលេខរៀងអ្នកជំងឺ</p>
+      </div>
+
+      <!-- ស្ថានភាពបន្ទប់ -->
+      <div class="status-badge-container">
+        <span id="status-badge" class="status-badge status-offline">បន្ទប់កំពុងបិទ (OFFLINE)</span>
+      </div>
+
+      <!-- លេខកំពុងហៅ -->
+      <div class="display-screen">
+        <div class="screen-label">លេខកំពុងហៅពិគ្រោះ៖</div>
+        <div class="screen-number" id="current-patient-num">---</div>
+      </div>
+
+      <!-- ប៊ូតុងបញ្ជា -->
+      <div class="btn-action-group">
+        <button class="btn btn-next" id="btn-next" onclick="callNextTicket()" disabled>
+          📢 ហៅលេខបន្ទាប់ (CALL NEXT)
+        </button>
+
+        <div class="btn-row">
+          <button class="btn btn-recall" id="btn-recall" onclick="recallTicket()" disabled>
+            🔔 ហៅម្តងទៀត
+          </button>
+          <button class="btn btn-finish" id="btn-finish" onclick="completeTicket()" disabled>
+            ✅ បញ្ចប់ការពិគ្រោះ
+          </button>
+        </div>
+
+        <button class="btn btn-toggle" id="toggle-status-btn" onclick="toggleRoomStatus()">
+          🟢 បើកដំណើរការបន្ទប់នេះ (ONLINE)
+        </button>
+      </div>
+
+      <div class="waiting-text">
+        ចំនួនអ្នកជំងឺកំពុងរង់ចាំសរុប៖ <b id="waiting-count" style="color: #facc15; font-size: 18px;">0</b> នាក់
+      </div>
+    </div>
+
+    <!-- 2. ផ្នែកខាងស្តាំ ៖ ស្ថានភាពបន្ទប់ទាំង៤ -->
+    <div class="card-panel">
+      <div class="grid-title font-muol">
+        📊 ស្ថានភាពបន្ទប់ទាំង ៤
+      </div>
+
+      <div class="rooms-grid">
+        <div class="room-mini-card" id="mini-card-1">
+          <div class="mini-card-header font-muol">បន្ទប់ពិគ្រោះ: 01</div>
+          <div class="mini-card-number" id="mini-num-1">---</div>
+          <div class="mini-card-status status-badge-red" id="mini-status-1">OFFLINE</div>
+        </div>
+
+        <div class="room-mini-card" id="mini-card-2">
+          <div class="mini-card-header font-muol">បន្ទប់ពិគ្រោះ: 02</div>
+          <div class="mini-card-number" id="mini-num-2">---</div>
+          <div class="mini-card-status status-badge-red" id="mini-status-2">OFFLINE</div>
+        </div>
+
+        <div class="room-mini-card" id="mini-card-3">
+          <div class="mini-card-header font-muol">បន្ទប់ពិគ្រោះ: 03</div>
+          <div class="mini-card-number" id="mini-num-3">---</div>
+          <div class="mini-card-status status-badge-red" id="mini-status-3">OFFLINE</div>
+        </div>
+
+        <div class="room-mini-card" id="mini-card-4">
+          <div class="mini-card-header font-muol">បន្ទប់ពិគ្រោះ: 04</div>
+          <div class="mini-card-number" id="mini-num-4">---</div>
+          <div class="mini-card-status status-badge-red" id="mini-status-4">OFFLINE</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+    const currentDept = 'OPD';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentRoom = parseInt(urlParams.get('room')) || 1;
+    let isRoomOnline = false;
+
+    updatePanelTitle(currentRoom);
+
+    const storedStatus = localStorage.getItem(`room_status_${currentDept}_${currentRoom}`);
+    if (storedStatus === 'true') {
+      isRoomOnline = true;
+    }
+
+    function extractTicketValue(data) {
+      if (data === null || data === undefined) return '---';
+      if (typeof data === 'string' || typeof data === 'number') return data;
+      return data.ticketNumber || data.ticket || data.currentTicket || data.number || (data.ticketData ? data.ticketData.number : '---');
+    }
+
+    function parseTicketNumber(rawVal) {
+      const ticketVal = extractTicketValue(rawVal);
+      if (!ticketVal) return '---';
+      const strVal = String(ticketVal).trim();
+      if (strVal === '' || strVal === '---' || strVal === 'undefined' || strVal === 'null') {
+        return '---';
+      }
+      if (/^\d+$/.test(strVal)) {
+        return strVal.padStart(3, '0');
+      }
+      return strVal;
+    }
+
+    function updatePanelTitle(room) {
+      const roomFormatted = String(room).padStart(2, '0');
+      document.getElementById('panel-room-title').innerText = `បន្ទប់ពិគ្រោះ: ${roomFormatted} (ជំងឺក្រៅ)`;
+      
+      for (let i = 1; i <= 4; i++) {
+        const miniCard = document.getElementById(`mini-card-${i}`);
+        if (miniCard) {
+          if (i === parseInt(room)) {
+            miniCard.classList.add('active-control');
+          } else {
+            miniCard.classList.remove('active-control');
+          }
+        }
+      }
+    }
+
+    function setUIStatus(online, notifyServer = true) {
+      isRoomOnline = online;
+      localStorage.setItem(`room_status_${currentDept}_${currentRoom}`, online);
+
+      const statusBadge = document.getElementById('status-badge');
+      const toggleBtn = document.getElementById('toggle-status-btn');
+      const btnNext = document.getElementById('btn-next');
+      const btnRecall = document.getElementById('btn-recall');
+      const btnFinish = document.getElementById('btn-finish');
+      const miniStatus = document.getElementById(`mini-status-${currentRoom}`);
+
+      if (online) {
+        statusBadge.className = 'status-badge status-online';
+        statusBadge.innerText = 'បន្ទប់កំពុងដំណើរការ (ONLINE)';
+        toggleBtn.innerText = '🔴 បិទបន្ទប់នេះ (OFFLINE)';
+        toggleBtn.style.backgroundColor = '#7f1d1d';
+
+        btnNext.disabled = false;
+        btnRecall.disabled = false;
+        btnFinish.disabled = false;
+
+        if (miniStatus) {
+          miniStatus.innerText = 'ONLINE';
+          miniStatus.className = 'mini-card-status status-badge-green';
+        }
+      } else {
+        statusBadge.className = 'status-badge status-offline';
+        statusBadge.innerText = 'បន្ទប់កំពុងបិទ (OFFLINE)';
+        toggleBtn.innerText = '🟢 បើកដំណើរការបន្ទប់នេះ (ONLINE)';
+        toggleBtn.style.backgroundColor = '#14532d';
+
+        btnNext.disabled = true;
+        btnRecall.disabled = true;
+        btnFinish.disabled = true;
+
+        if (miniStatus) {
+          miniStatus.innerText = 'OFFLINE';
+          miniStatus.className = 'mini-card-status status-badge-red';
+        }
+      }
+
+      if (notifyServer && socket.connected) {
+        socket.emit('toggle-room-status', { 
+          dept: currentDept, 
+          room: currentRoom, 
+          status: online ? 'ONLINE' : 'OFFLINE',
+          isOnline: online
+        });
+      }
+    }
+
+    socket.on('connect', () => {
+      setUIStatus(isRoomOnline, true);
+      socket.emit('get-doctor-init', { dept: currentDept, room: currentRoom });
+    });
+
+    socket.on('update-rooms', (roomsData) => {
+      const rooms = (roomsData && roomsData[currentDept]) ? roomsData[currentDept] : roomsData || {};
+
+      for (let r = 1; r <= 4; r++) {
+        const rData = rooms[r] || { currentTicket: '---', status: 'OFFLINE' };
+        
+        const miniNum = document.getElementById(`mini-num-${r}`);
+        const miniStatus = document.getElementById(`mini-status-${r}`);
+        const isOnline = (rData.status === 'ACTIVE' || rData.status === 'ONLINE' || rData.isOnline === true);
+
+        const rawTicket = rData.currentTicket || rData.ticket || rData.ticketNumber;
+        const parsedTicket = parseTicketNumber(rawTicket);
+
+        if (miniNum) miniNum.innerText = parsedTicket;
+        
+        if (miniStatus) {
+          if (isOnline) {
+            miniStatus.innerText = 'ONLINE';
+            miniStatus.className = 'mini-card-status status-badge-green';
+          } else {
+            miniStatus.innerText = 'OFFLINE';
+            miniStatus.className = 'mini-card-status status-badge-red';
+          }
+        }
+
+        if (r === currentRoom) {
+          const numElem = document.getElementById('current-patient-num');
+          if (numElem) numElem.innerText = parsedTicket;
+        }
+      }
+    });
+
+    function handleCalledTicket(data) {
+      if (!data) return;
+      // លក្ខខណ្ឌកែតម្រូវ៖ ផ្ទៀងផ្ទាត់ថាជាផ្នែក OPD ទើបធ្វើការ update
+      if (data.dept && data.dept !== currentDept) return;
+
+      const roomNum = parseInt(data.room) || currentRoom;
+      const ticketStr = parseTicketNumber(data);
+
+      const miniNum = document.getElementById(`mini-num-${roomNum}`);
+      if (miniNum) miniNum.innerText = ticketStr;
+
+      if (roomNum === currentRoom) {
+        const numElem = document.getElementById('current-patient-num');
+        if (numElem) numElem.innerText = ticketStr;
+      }
+    }
+
+    socket.on('ticket-called', handleCalledTicket);
+    socket.on('play-sound', handleCalledTicket);
+
+    socket.on('update-waiting', (data) => {
+      const waitingElem = document.getElementById('waiting-count');
+      if (waitingElem) {
+        const list = (data && data[currentDept]) ? data[currentDept] : (data.waitingList || (Array.isArray(data) ? data : []));
+        waitingElem.innerText = list.length;
+      }
+    });
+
+    function callNextTicket() {
+      if (!isRoomOnline) return;
+      socket.emit('call-next', { dept: currentDept, room: currentRoom });
+    }
+
+    function recallTicket() {
+      if (!isRoomOnline) return;
+      socket.emit('recall-ticket', { dept: currentDept, room: currentRoom });
+    }
+
+    function completeTicket() {
+      if (!isRoomOnline) return;
+      socket.emit('complete-ticket', { dept: currentDept, room: currentRoom });
+      
+      document.getElementById('current-patient-num').innerText = '---';
+      document.getElementById(`mini-num-${currentRoom}`).innerText = '---';
+    }
+
+    function toggleRoomStatus() {
+      setUIStatus(!isRoomOnline, true);
+    }
+  </script>
+</body>
+</html>
