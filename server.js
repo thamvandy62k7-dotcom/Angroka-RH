@@ -28,6 +28,11 @@ const queueSchema = new mongoose.Schema({
 
 const QueueModel = mongoose.model('QueueData', queueSchema);
 
+// 🌟 បង្កើត Function ចាប់យកថ្ងៃខែឆ្នាំ តាមម៉ោងនៅប្រទេសកម្ពុជា
+function getCurrentDateKH() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
+}
+
 // ៣. តម្លៃដើម (Default Values)
 let roomStates = {
   OPD: { 1: { currentTicket: '---', status: 'OFFLINE' }, 2: { currentTicket: '---', status: 'OFFLINE' }, 3: { currentTicket: '---', status: 'OFFLINE' }, 4: { currentTicket: '---', status: 'OFFLINE' } },
@@ -38,14 +43,14 @@ let roomStates = {
 
 let waitingLists = { OPD: [], NCD: [], OBGYN: [], ARV: [] };
 let departmentCounters = { OPD: 0, NCD: 0, OBGYN: 0, ARV: 0 };
-let lastDate = new Date().toISOString().slice(0, 10);
+let lastDate = getCurrentDateKH(); // ប្រើប្រាស់ម៉ោងកម្ពុជា
 const departmentPrefixes = { OPD: 'A', NCD: 'B', OBGYN: 'C', ARV: 'D' };
 
 // ៤. ទាញយកទិន្នន័យពី MongoDB ពេល Server ដំណើរការដំបូង
 async function loadStoredData() {
   try {
     const data = await QueueModel.findOne({ id: 'main_queue_system' });
-    const currentDate = new Date().toISOString().slice(0, 10);
+    const currentDate = getCurrentDateKH();
 
     if (data) {
       if (data.lastDate === currentDate) {
@@ -53,8 +58,10 @@ async function loadStoredData() {
         if (data.departmentCounters) departmentCounters = data.departmentCounters;
         if (data.waitingLists) waitingLists = data.waitingLists;
         if (data.roomStates) roomStates = data.roomStates;
+        console.log('✅ ទាញយកទិន្នន័យលេខរៀងចាស់បានជោគជ័យ!');
       } else {
         // ឆ្លងចូលថ្ងៃថ្មី ធ្វើការ Reset
+        console.log(`[DATE CHANGED] កំណត់លេខរៀងសារថ្មីសម្រាប់ថ្ងៃ: ${currentDate}`);
         lastDate = currentDate;
         departmentCounters = { OPD: 0, NCD: 0, OBGYN: 0, ARV: 0 };
         waitingLists = { OPD: [], NCD: [], OBGYN: [], ARV: [] };
@@ -63,10 +70,10 @@ async function loadStoredData() {
             roomStates[dept][room].currentTicket = '---';
           });
         });
-        saveStoredData();
+        await saveStoredData(); // បន្ថែម await
       }
     } else {
-      saveStoredData(); // បង្កើតទិន្នន័យថ្មីប្រសិនបើមិនទាន់មាន
+      await saveStoredData(); // បង្កើតទិន្នន័យថ្មីប្រសិនបើមិនទាន់មាន
     }
   } catch (err) {
     console.error('Error loading from MongoDB:', err);
@@ -87,8 +94,8 @@ async function saveStoredData() {
 }
 
 // ៦. ពិនិត្យពេលឆ្លងថ្ងៃ
-function checkAndResetDailyQueue() {
-  const currentDate = new Date().toISOString().slice(0, 10);
+async function checkAndResetDailyQueue() {
+  const currentDate = getCurrentDateKH();
   if (lastDate !== currentDate) {
     console.log(`[DATE CHANGED] Resetting queue counter for new day: ${currentDate}`);
     departmentCounters = { OPD: 0, NCD: 0, OBGYN: 0, ARV: 0 };
@@ -101,7 +108,7 @@ function checkAndResetDailyQueue() {
     });
 
     lastDate = currentDate;
-    saveStoredData();
+    await saveStoredData(); // បន្ថែម await
     io.emit('update-rooms', roomStates);
     io.emit('update-waiting', waitingLists);
   }
@@ -110,15 +117,16 @@ function checkAndResetDailyQueue() {
 // Initialize Database
 loadStoredData();
 
-// ៧. Socket.io Events (កូដចាស់របស់អ្នកដដែល គ្រាន់តែវាហៅ saveStoredData ទៅ Mongo)
+// ៧. Socket.io Events
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
-  checkAndResetDailyQueue();
+  
+  // ពេលភ្ញៀវភ្ជាប់មក ហៅប្រាប់គាត់ពីទិន្នន័យបច្ចុប្បន្ន
   socket.emit('update-rooms', roomStates);
   socket.emit('update-waiting', waitingLists);
 
-  socket.on('request-ticket', (data) => {
-    checkAndResetDailyQueue();
+  socket.on('request-ticket', async (data) => {
+    await checkAndResetDailyQueue(); // បន្ថែម await
     let dept = (data && data.dept) ? String(data.dept).trim().toUpperCase() : 'OPD';
     if (!departmentCounters.hasOwnProperty(dept)) dept = 'OPD';
 
@@ -129,19 +137,19 @@ io.on('connection', (socket) => {
     if (!waitingLists[dept]) waitingLists[dept] = [];
     waitingLists[dept].push(ticketNum);
 
-    saveStoredData();
+    await saveStoredData(); // បន្ថែម await ដើម្បីប្រាកដថាបាន Save ចូល DB
 
     socket.emit('ticket-generated', { dept: dept, ticket: ticketNum });
     io.emit('update-waiting', waitingLists);
   });
 
-  socket.on('get-doctor-init', (data) => {
-    checkAndResetDailyQueue();
+  socket.on('get-doctor-init', async (data) => {
+    await checkAndResetDailyQueue();
     socket.emit('update-rooms', roomStates);
     socket.emit('update-waiting', waitingLists);
   });
 
-  socket.on('toggle-room-status', (data) => {
+  socket.on('toggle-room-status', async (data) => {
     const dept = (data && data.dept) ? String(data.dept).trim().toUpperCase() : 'OPD';
     const room = parseInt(data.room) || 1;
 
@@ -152,13 +160,13 @@ io.on('connection', (socket) => {
     let newStatus = data.status || ((currentStatus === 'ONLINE' || currentStatus === 'ACTIVE') ? 'OFFLINE' : 'ONLINE');
     roomStates[dept][room].status = newStatus;
 
-    saveStoredData(); // រក្សាទុកស្ថានភាពបន្ទប់
+    await saveStoredData(); // រក្សាទុកស្ថានភាពបន្ទប់
     io.emit('update-rooms', roomStates);
     io.emit('room-status-changed', { dept, room, status: newStatus, isOnline: newStatus === 'ONLINE', currentTicket: roomStates[dept][room].currentTicket });
   });
 
-  socket.on('call-next', (data) => {
-    checkAndResetDailyQueue();
+  socket.on('call-next', async (data) => {
+    await checkAndResetDailyQueue();
     const dept = (data && data.dept) ? String(data.dept).trim().toUpperCase() : 'OPD';
     const room = parseInt(data.room) || 1;
 
@@ -169,7 +177,8 @@ io.on('connection', (socket) => {
       
       roomStates[dept][room].currentTicket = nextTicket;
 
-      saveStoredData();
+      await saveStoredData(); // បន្ថែម await
+      
       io.emit('update-rooms', roomStates);
       io.emit('update-waiting', waitingLists);
       io.emit('ticket-called', { dept: dept, room: room, ticket: nextTicket, currentTicket: nextTicket });
@@ -188,14 +197,14 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('complete-ticket', (data) => {
+  socket.on('complete-ticket', async (data) => {
     const dept = (data && data.dept) ? String(data.dept).trim().toUpperCase() : 'OPD';
     const room = parseInt(data.room) || 1;
 
     if (roomStates[dept] && roomStates[dept][room]) {
       roomStates[dept][room].currentTicket = '---';
     }
-    saveStoredData();
+    await saveStoredData(); // បន្ថែម await
     io.emit('update-rooms', roomStates);
   });
 });
