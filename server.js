@@ -70,7 +70,7 @@ async function loadStoredData() {
             roomStates[dept][room].currentTicket = '---';
           });
         });
-        await saveStoredData(); // បន្ថែម await
+        await saveStoredData(); 
       }
     } else {
       await saveStoredData(); // បង្កើតទិន្នន័យថ្មីប្រសិនបើមិនទាន់មាន
@@ -108,7 +108,7 @@ async function checkAndResetDailyQueue() {
     });
 
     lastDate = currentDate;
-    await saveStoredData(); // បន្ថែម await
+    await saveStoredData(); 
     io.emit('update-rooms', roomStates);
     io.emit('update-waiting', waitingLists);
   }
@@ -126,7 +126,7 @@ io.on('connection', (socket) => {
   socket.emit('update-waiting', waitingLists);
 
   socket.on('request-ticket', async (data) => {
-    await checkAndResetDailyQueue(); // បន្ថែម await
+    await checkAndResetDailyQueue(); 
     let dept = (data && data.dept) ? String(data.dept).trim().toUpperCase() : 'OPD';
     if (!departmentCounters.hasOwnProperty(dept)) dept = 'OPD';
 
@@ -137,10 +137,12 @@ io.on('connection', (socket) => {
     if (!waitingLists[dept]) waitingLists[dept] = [];
     waitingLists[dept].push(ticketNum);
 
-    await saveStoredData(); // បន្ថែម await ដើម្បីប្រាកដថាបាន Save ចូល DB
-
+    // ⚡️ ១. បញ្ជូនលេខរៀងទៅម៉ាស៊ីនព្រីន និង អេក្រង់ភ្លាមៗ (ដើម្បីលឿន)
     socket.emit('ticket-generated', { dept: dept, ticket: ticketNum });
     io.emit('update-waiting', waitingLists);
+
+    // 💾 ២. Save ចូល Database តាមក្រោយ (Background Saving) មិនចាំបាច់មាន await ទេ
+    saveStoredData(); 
   });
 
   socket.on('get-doctor-init', async (data) => {
@@ -160,9 +162,12 @@ io.on('connection', (socket) => {
     let newStatus = data.status || ((currentStatus === 'ONLINE' || currentStatus === 'ACTIVE') ? 'OFFLINE' : 'ONLINE');
     roomStates[dept][room].status = newStatus;
 
-    await saveStoredData(); // រក្សាទុកស្ថានភាពបន្ទប់
+    // ⚡️ បញ្ជូនទៅអេក្រង់ភ្លាមៗ
     io.emit('update-rooms', roomStates);
     io.emit('room-status-changed', { dept, room, status: newStatus, isOnline: newStatus === 'ONLINE', currentTicket: roomStates[dept][room].currentTicket });
+    
+    // 💾 Save តាមក្រោយ
+    saveStoredData(); 
   });
 
   socket.on('call-next', async (data) => {
@@ -177,12 +182,14 @@ io.on('connection', (socket) => {
       
       roomStates[dept][room].currentTicket = nextTicket;
 
-      await saveStoredData(); // បន្ថែម await
-      
+      // ⚡️ បញ្ជូនសម្លេងហៅ និងលោតលេខលើអេក្រង់ភ្លាមៗ
       io.emit('update-rooms', roomStates);
       io.emit('update-waiting', waitingLists);
       io.emit('ticket-called', { dept: dept, room: room, ticket: nextTicket, currentTicket: nextTicket });
       io.emit('play-audio-call', { dept: dept, room: room, ticket: nextTicket });
+
+      // 💾 Save តាមក្រោយ
+      saveStoredData(); 
     }
   });
 
@@ -204,8 +211,12 @@ io.on('connection', (socket) => {
     if (roomStates[dept] && roomStates[dept][room]) {
       roomStates[dept][room].currentTicket = '---';
     }
-    await saveStoredData(); // បន្ថែម await
+    
+    // ⚡️ បញ្ជូនទៅអេក្រង់ភ្លាមៗ
     io.emit('update-rooms', roomStates);
+    
+    // 💾 Save តាមក្រោយ
+    saveStoredData(); 
   });
 });
 
