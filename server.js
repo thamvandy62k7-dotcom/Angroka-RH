@@ -14,7 +14,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ១. ភ្ជាប់ទៅកាន់ MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ ភ្ជាប់ទៅកាន់ MongoDB ជោគជ័យ!'))
+  .then(async () => {
+    console.log('✅ ភ្ជាប់ទៅកាន់ MongoDB ជោគជ័យ!');
+    await loadStoredData(); // ត្រូវប្រាកដថាភ្ជាប់ DB ជាប់ ទើបទាញទិន្នន័យ
+  })
   .catch(err => console.error('❌ បរាជ័យក្នុងការភ្ជាប់ MongoDB:', err));
 
 // ២. បង្កើត Schema សម្រាប់ទិន្នន័យ Queue
